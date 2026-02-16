@@ -158,20 +158,20 @@ The computational basis is ordered as:
 | Index (1-based) | State |
 |:---:|:---:|
 | 1 | $\|+1,+1\rangle$ |
-| 2 | $\|+1,\;0\rangle$ |
+| 2 | $\|+1,0\rangle$ |
 | 3 | $\|+1,-1\rangle$ |
 | 4 | $\|0,+1\rangle$ |
-| 5 | $\|0,\;0\rangle$ |
+| 5 | $\|0,0\rangle$ |
 | 6 | $\|0,-1\rangle$ |
 | 7 | $\|-1,+1\rangle$ |
-| 8 | $\|-1,\;0\rangle$ |
+| 8 | $\|-1,0\rangle$ |
 | 9 | $\|-1,-1\rangle$ |
 
 ### Static Hamiltonian
 
 All internal Hamiltonian terms are in angular-frequency units ($\hbar = 1$):
 
-$$H_0 = D\, S_z^2 \otimes \mathbb{1}_3 + Q\, \mathbb{1}_3 \otimes I_z^2 + \omega_e\, S_z \otimes \mathbb{1}_3 + \omega_n\, \mathbb{1}_3 \otimes I_z + A\, S_z \otimes I_z$$
+$$H_0 = D S_z^2 \otimes \mathbb{1}_3 + Q \mathbb{1}_3 \otimes I_z^2 + \omega_e S_z \otimes \mathbb{1}_3 + \omega_n \mathbb{1}_3 \otimes I_z + A S_z \otimes I_z$$
 
 where $\omega_e = -\gamma_e B_0$ and $\omega_n = -\gamma_n B_0$.
 
@@ -196,15 +196,15 @@ custom = NVParams(D=2.0 * np.pi * 2.88e9)  # custom zero-field splitting
 
 The microwave drive along axis $\alpha \in \{x, y, z\}$ is:
 
-$$H_1(t) = -\gamma_e\, B_1 \cos(2\pi f t)\; S_\alpha \otimes \mathbb{1}_3 \;-\; \gamma_n\, B_1 \cos(2\pi f t)\; \mathbb{1}_3 \otimes I_\alpha$$
+$$H_1(t) = -\gamma_e B_1 \cos(2\pi f t) S_\alpha \otimes \mathbb{1}_3 - \gamma_n B_1 \cos(2\pi f t) \mathbb{1}_3 \otimes I_\alpha$$
 
-The ODE solver integrates $i\hbar\, \partial_t |\psi\rangle = [H_0 + H_1(t)]\,|\psi\rangle$ using `scipy.integrate.solve_ivp` with the DOP853 (8th-order Dormand-Prince) method.
+The ODE solver integrates $i\hbar \partial_t |\psi\rangle = [H_0 + H_1(t)] |\psi\rangle$ using `scipy.integrate.solve_ivp` with the DOP853 (8th-order Dormand-Prince) method.
 
 ### RWA Hamiltonian (RWA path)
 
 Moving to the rotating frame and dropping counter-rotating terms yields a time-independent Hamiltonian:
 
-$$H_{\text{RWA}} = H_0 \pm \omega_d\, (S_z \otimes \mathbb{1}_3) + \frac{-\gamma_e B_1}{2}\, (S_\perp \otimes \mathbb{1}_3)$$
+$$H_{\text{RWA}} = H_0 \pm \omega_d (S_z \otimes \mathbb{1}_3) + \frac{-\gamma_e B_1}{2} (S_\perp \otimes \mathbb{1}_3)$$
 
 - The $+$ sign selects the $m_s = 0 \leftrightarrow -1$ transition (`rwa_branch="ms_minus"`).
 - The $-$ sign selects the $m_s = 0 \leftrightarrow +1$ transition (`rwa_branch="ms_plus"`).
@@ -212,7 +212,7 @@ $$H_{\text{RWA}} = H_0 \pm \omega_d\, (S_z \otimes \mathbb{1}_3) + \frac{-\gamma
 
 Time evolution under a time-independent Hamiltonian is computed analytically:
 
-$$|\psi(t)\rangle = e^{-i H_{\text{RWA}}\, t}\, |\psi(0)\rangle$$
+$$|\psi(t)\rangle = e^{-i H_{\text{RWA}} t} |\psi(0)\rangle$$
 
 using `scipy.linalg.expm`, which supports vectorized batch evaluation over frequency sweeps (ODMR) or time arrays (Rabi).
 
