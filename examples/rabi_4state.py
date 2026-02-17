@@ -1,6 +1,7 @@
-"""Rabi oscillation with 4-state population readout.
+"""Rabi oscillation with 4-state population readout at B0 = 500 G.
 
-Initial state: equal superposition of |0,+1>, |0,0>, |0,-1>.
+Initial state: equal superposition of |0,+1>, |0,0>, |0,-1>
+(achievable via optical pumping at high field).
 Drive frequency: on resonance with the mI=0 transition (|0,0> <-> |-1,0>).
 
 The mI=0 component undergoes full on-resonance Rabi oscillation.
@@ -18,7 +19,7 @@ from NV_Simulator.rwa import rwa_hamiltonian
 from NV_Simulator.solver import propagate_expm
 
 params = NVParams()
-b0 = 20.0   # Gauss
+b0 = 500.0  # Gauss
 b1 = 2.5    # Gauss  ->  Omega_R ~ 2*pi*5 MHz
 
 # Equal superposition of ms=0 sub-levels
@@ -55,7 +56,7 @@ ax.plot(times_us, prob[:, 7], label=r"$|-1,0\rangle$",    linewidth=1.5, linesty
 ax.set_xlabel(r"Time ($\mu$s)")
 ax.set_ylabel("Population")
 ax.set_title(
-    f"Rabi  —  $B_0$={b0} G,  $B_1$={b1} G,  "
+    f"Rabi  —  $B_0$={b0:.0f} G,  $B_1$={b1} G,  "
     f"$f_{{drive}}$={f_res_hz/1e9:.4f} GHz"
 )
 ax.legend()
