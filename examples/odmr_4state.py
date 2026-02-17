@@ -46,17 +46,13 @@ prob = np.abs(states) ** 2  # (N, 9)
 fig, ax = plt.subplots(figsize=(8, 5))
 freqs_ghz = freqs_hz / 1e9
 
-ax.plot(freqs_ghz, prob[:, 3], label=r"$|0,+1\rangle$",  linewidth=1.5)
-ax.plot(freqs_ghz, prob[:, 6], label=r"$|-1,+1\rangle$", linewidth=1.5)
-ax.plot(freqs_ghz, prob[:, 7], label=r"$|-1,0\rangle$",  linewidth=1.5)
-ax.plot(freqs_ghz, prob[:, 8], label=r"$|-1,-1\rangle$", linewidth=1.5)
+ax.plot(freqs_ghz, prob[:, 3], linewidth=1.5, color="C0")
 
 ax.set_xlabel("Drive frequency (GHz)")
-ax.set_ylabel("Population")
+ax.set_ylabel(r"$P(|0,+1\rangle)$")
 ax.set_title(
     rf"ODMR  —  $B_0$={b0:.0f} G,  $\Omega$={omega_mhz} MHz,  "
     f"$t_{{pulse}}$={t_pulse*1e9:.0f} ns"
 )
-ax.legend()
 plt.tight_layout()
 plt.show()
