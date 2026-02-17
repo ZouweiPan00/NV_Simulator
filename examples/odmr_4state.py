@@ -1,12 +1,11 @@
 """ODMR with 4-state population readout at B0 = 500 G.
 
-Initial state: equal superposition of |0,+1>, |0,0>, |0,-1>
-(representing equal population across all three mI sub-levels of ms=0,
-achievable via optical pumping at high field).
+Initial state: |0,+1> (state 4), optically initialized at high field.
+Input drive strength is specified as Rabi frequency Omega in MHz.
 
-Since Sx drives preserve mI, each sub-level shows an independent resonance
-at a hyperfine-shifted frequency. The plot reveals the three-line hyperfine
-structure of the ms=0 <-> -1 transition.
+The plot shows the population of |0,+1> and the three ms=-1 sub-levels
+as a function of drive frequency. Only the mI-conserving transition
+|0,+1> <-> |-1,+1> produces a resonance peak.
 """
 
 import numpy as np
@@ -18,18 +17,17 @@ from NV_Simulator.rwa import rwa_hamiltonian
 from NV_Simulator.solver import propagate_expm
 
 params = NVParams()
-b0 = 500.0      # Gauss
-b1 = 2.5        # Gauss  ->  Omega_R ~ 2*pi*5 MHz
-t_pulse = 1e-7  # 100 ns  (~ pi pulse at resonance)
+b0 = 500.0          # Gauss
+omega_mhz = 5.0     # Rabi frequency in MHz
+t_pulse = 1e-7      # 100 ns  (~ pi pulse at resonance)
 
-# Equal superposition of ms=0 sub-levels
-psi0 = (
-    ket_from_quantum_numbers(0, +1)
-    + ket_from_quantum_numbers(0, 0)
-    + ket_from_quantum_numbers(0, -1)
-) / np.sqrt(3)
+# Convert Omega (MHz) to B1 (Gauss):  Omega_R = |gamma_e| * B1 / sqrt(2)
+b1 = (2 * np.pi * omega_mhz * 1e6) * np.sqrt(2) / abs(params.gamma_e)
 
-# Frequency sweep across the three hyperfine transitions (~1.466 - 1.471 GHz)
+# Initial state: |0,+1>
+psi0 = ket_from_quantum_numbers(0, +1)
+
+# Frequency sweep around the |0,+1> <-> |-1,+1> transition (~1.4707 GHz)
 n_points = 501
 freqs_hz = np.linspace(1.460e9, 1.478e9, n_points)
 
@@ -49,15 +47,16 @@ fig, ax = plt.subplots(figsize=(8, 5))
 freqs_ghz = freqs_hz / 1e9
 
 ax.plot(freqs_ghz, prob[:, 3], label=r"$|0,+1\rangle$",  linewidth=1.5)
-ax.plot(freqs_ghz, prob[:, 4], label=r"$|0,\;0\rangle$", linewidth=1.5)
-ax.plot(freqs_ghz, prob[:, 5], label=r"$|0,-1\rangle$",  linewidth=1.5)
-ax.plot(freqs_ghz, prob[:, 6] + prob[:, 7] + prob[:, 8],
-        label=r"$P(m_s=-1)$ total", linewidth=1.5, linestyle="--", color="black")
+ax.plot(freqs_ghz, prob[:, 6], label=r"$|-1,+1\rangle$", linewidth=1.5)
+ax.plot(freqs_ghz, prob[:, 7], label=r"$|-1,0\rangle$",  linewidth=1.5)
+ax.plot(freqs_ghz, prob[:, 8], label=r"$|-1,-1\rangle$", linewidth=1.5)
 
 ax.set_xlabel("Drive frequency (GHz)")
 ax.set_ylabel("Population")
-ax.set_title(f"ODMR  —  $B_0$={b0:.0f} G,  $B_1$={b1} G,  $t_{{pulse}}$={t_pulse*1e9:.0f} ns")
+ax.set_title(
+    rf"ODMR  —  $B_0$={b0:.0f} G,  $\Omega$={omega_mhz} MHz,  "
+    f"$t_{{pulse}}$={t_pulse*1e9:.0f} ns"
+)
 ax.legend()
-ax.set_ylim(-0.02, 0.45)
 plt.tight_layout()
 plt.show()
