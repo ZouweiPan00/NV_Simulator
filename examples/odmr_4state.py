@@ -18,8 +18,8 @@ from NV_Simulator.solver import propagate_expm
 
 params = NVParams()
 b0 = 500.0          # Gauss
-omega_mhz = 5.0     # Rabi frequency in MHz
-t_pulse = 1e-7      # 100 ns  (~ pi pulse at resonance)
+omega_mhz = 1.0     # Rabi frequency in MHz
+t_pulse = 1/2/omega_mhz * 1e-6      # ns  (~ pi pulse at resonance)
 
 # Convert Omega (MHz) to B1 (Gauss):  Omega_R = |gamma_e| * B1 / sqrt(2)
 b1 = (2 * np.pi * omega_mhz * 1e6) * np.sqrt(2) / abs(params.gamma_e)
