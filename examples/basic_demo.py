@@ -6,7 +6,7 @@ from NV_Simulator import NVParams, ket_from_index, simulate_odmr, simulate_rabi,
 def main() -> None:
     psi0 = ket_from_index(4)  # |0,+1> = |4>
     b0 = 500.0
-    omega_hz = 19.0e6  # Input Omega in Hz
+    omega_hz = 10.0e6  # Input Omega in Hz
     gamma_e = NVParams().gamma_e  # rad/(s*G)
     # 2*pi*Omega = -gamma_e*B1/sqrt(2)
     b1 = -(2.0 * np.pi * omega_hz) * np.sqrt(2.0) / gamma_e
