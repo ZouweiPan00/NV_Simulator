@@ -141,11 +141,11 @@ def simulate_rabi(
 ) -> Dict[str, np.ndarray]:
     """Rabi oscillation simulation.
 
-    Note on ``t_start_s``: In the RWA path, ``propagate_expm`` computes
-    exp(-i H t) psi0 for each t value, i.e. the drive is assumed on since t=0.
-    In the ODE path, ``propagate_state`` integrates from ``t_start_s`` to
-    ``t_stop_s``, so the drive phase starts at ``t_start_s``.  For typical use
-    (``t_start_s=0``) both paths are equivalent.
+    The drive is assumed on since t=0.  ``t_start_s`` and ``t_stop_s`` define
+    the output window: both backends return the state at each time in
+    ``linspace(t_start_s, t_stop_s, n_points)``.  For the ODE path the
+    integrator runs from t=0 so that the drive phase ``cos(2*pi*f*t)`` is
+    consistent with the RWA path.
     """
     method = _validate_method(method)
     params = params or NVParams()
@@ -166,8 +166,6 @@ def simulate_rabi(
         states = propagate_expm(psi0, h_rwa, times)  # (N, 9)
         signal = _readout_signal_batch(states, readout_ms, readout_state_index)
     else:
-        t0 = float(times.min())
-        t1 = float(times.max())
         h0 = static_hamiltonian(params=params, b0_gauss=b0_gauss)
         h1_t = make_linearly_polarized_drive(
             params=params,
@@ -179,7 +177,7 @@ def simulate_rabi(
         _, ode_states = propagate_state(
             psi0=psi0,
             hamiltonian=h_t,
-            t_span=(t0, t1),
+            t_span=(0.0, float(t_stop_s)),
             t_eval=times,
         )
         states = ode_states
