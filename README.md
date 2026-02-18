@@ -10,7 +10,7 @@ A Python package for simulating the **9-level nitrogen-vacancy (NV) center** in 
 | Solver | Method | Speed | Accuracy |
 |--------|--------|-------|----------|
 | **ODE** (`method="ode"`) | Full time-dependent Schrodinger equation via `scipy.integrate.solve_ivp` (DOP853) | Slow -- must resolve GHz oscillations | Exact (no approximations) |
-| **RWA** (`method="rwa"`) | Rotating-wave approximation transforms to a time-independent 9x9 Hamiltonian; batch propagation via `scipy.linalg.expm` | Orders of magnitude faster | Excellent near resonance; omits nuclear drive term ($\|\gamma_n / \gamma_e\| \sim 10^{-4}$) |
+| **RWA** (`method="rwa"`) | Rotating-wave approximation transforms to a time-independent 9x9 Hamiltonian; batch propagation via `scipy.linalg.expm` | Orders of magnitude faster | Excellent near resonance; in ESR mode, neglects nuclear drive due to strong off-resonance (large detuning) |
 
 Three standard NV experiments are built in: **ODMR**, **Rabi oscillations**, and **Ramsey T2\***.
 
@@ -202,13 +202,21 @@ The ODE solver integrates $i\hbar \partial_t |\psi\rangle = [H_0 + H_1(t)] |\psi
 
 ### RWA Hamiltonian (RWA path)
 
-Moving to the rotating frame and dropping counter-rotating terms yields a time-independent Hamiltonian:
+For microwave ESR control (electron-spin transitions), moving to the rotating frame and dropping counter-rotating terms yields a time-independent Hamiltonian:
 
-$$H_{\text{RWA}} = H_0 \pm \omega_d (S_z \otimes \mathbb{1}_3) + \frac{-\gamma_e B_1}{2} (S_\perp \otimes \mathbb{1}_3)$$
+$$H_{\text{RWA}}^{(e)} = H_0 \pm \omega_d (S_z \otimes \mathbb{1}_3) + \frac{-\gamma_e B_1}{2} (S_\perp \otimes \mathbb{1}_3)$$
 
 - The $+$ sign selects the $m_s = 0 \leftrightarrow -1$ transition (`rwa_branch="ms_minus"`).
 - The $-$ sign selects the $m_s = 0 \leftrightarrow +1$ transition (`rwa_branch="ms_plus"`).
-- The nuclear drive term is omitted because $|\gamma_n / \gamma_e| \sim 10^{-4}$.
+- In ESR driving, the nuclear drive term is neglected primarily because nuclear transitions are strongly off-resonant (large detuning from the microwave drive). The small $|\gamma_n|$ only further suppresses this term.
+
+For RF nuclear-spin control, the analogous rotating-frame form is
+
+$$H_{\text{RWA}}^{(n)} = H_0 - \omega_{\rm rf} (\mathbb{1}_3 \otimes I_z) + \frac{-\gamma_n B_1}{2} (\mathbb{1}_3 \otimes I_\perp)$$
+
+where the electron transverse drive is then strongly off-resonant and can be neglected in the same spirit.
+
+Current `rwa.py` implements the ESR branches (`ms_minus` / `ms_plus`). The nuclear-spin rotating-frame derivation is documented in `NV_Simulator/RWA.md` and can always be benchmarked against the full `method="ode"` solver.
 
 Time evolution under a time-independent Hamiltonian is computed analytically:
 
