@@ -10,7 +10,7 @@ A Python package for simulating the **9-level nitrogen-vacancy (NV) center** in 
 | Solver | Method | Speed | Accuracy |
 |--------|--------|-------|----------|
 | **ODE** (`method="ode"`) | Full time-dependent Schrodinger equation via `scipy.integrate.solve_ivp` (DOP853) | Slow -- must resolve GHz oscillations | Exact (no approximations) |
-| **RWA** (`method="rwa"`) | Rotating-wave approximation transforms to a time-independent 9x9 Hamiltonian; batch propagation via `scipy.linalg.expm` | Orders of magnitude faster | Excellent near resonance; in ESR mode, neglects nuclear drive due to strong off-resonance (large detuning) |
+| **RWA** (`method="rwa"`) | Rotating-wave approximation transforms to a time-independent 9x9 Hamiltonian; batch propagation via `scipy.linalg.expm` | Orders of magnitude faster | Excellent near resonance; keeps the targeted spin channel and can auto-fallback to ODE near cross-spin resonances |
 
 Three standard NV experiments are built in: **ODMR**, **Rabi oscillations**, and **Ramsey T2\***.
 
@@ -212,11 +212,17 @@ $$H_{\text{RWA}}^{(e)} = H_0 \pm \omega_d (S_z \otimes \mathbb{1}_3) + \frac{-\g
 
 For RF nuclear-spin control, the analogous rotating-frame form is
 
-$$H_{\text{RWA}}^{(n)} = H_0 - \omega_{\rm rf} (\mathbb{1}_3 \otimes I_z) + \frac{-\gamma_n B_1}{2} (\mathbb{1}_3 \otimes I_\perp)$$
+$$H_{\text{RWA}}^{(n)} = H_0 \pm \omega_{\rm rf} (\mathbb{1}_3 \otimes I_z) + \frac{-\gamma_n B_1}{2} (\mathbb{1}_3 \otimes I_\perp)$$
 
-where the electron transverse drive is then strongly off-resonant and can be neglected in the same spirit.
+- The $-$ sign targets the $m_I=+1 \leftrightarrow 0$ branch (e.g. $|4\rangle \leftrightarrow |5\rangle$).
+- The $+$ sign targets the $m_I=0 \leftrightarrow -1$ branch (e.g. $|5\rangle \leftrightarrow |6\rangle$).
+- The electron transverse drive is then strongly off-resonant and can be neglected in the same spirit.
 
-Current `rwa.py` implements the ESR branches (`ms_minus` / `ms_plus`). The nuclear-spin rotating-frame derivation is documented in `NV_Simulator/RWA.md` and can always be benchmarked against the full `method="ode"` solver.
+`rwa.py` supports both ESR and nuclear branches:
+- `rwa_spin="electron"` with `rwa_branch in {"ms_minus", "ms_plus"}`
+- `rwa_spin="nuclear"` with `rwa_branch in {"mi_minus", "mi_plus"}`
+
+In near-crossing regimes (e.g., special high-$B_0$ points where electron and nuclear transition frequencies become close), high-level experiment APIs can auto-fallback from `method="rwa"` to `method="ode"` (`rwa_auto_fallback=True`, default).
 
 Time evolution under a time-independent Hamiltonian is computed analytically:
 
@@ -250,7 +256,9 @@ simulate_odmr(
     readout_ms: int = 0,                   # ms subspace to measure
     readout_state_index: int | None = None,  # 1-based index (overrides readout_ms)
     drive_axis: str = "x",                 # drive polarization axis
-    rwa_branch: str = "ms_minus",          # "ms_minus" or "ms_plus"
+    rwa_branch: str = "ms_minus",          # electron: ms_minus/ms_plus; nuclear: mi_minus/mi_plus
+    rwa_spin: str = "electron",            # "electron" or "nuclear"
+    rwa_auto_fallback: bool = True,        # auto-switch to ODE near cross-spin resonances
     params: NVParams | None = None,        # custom NV parameters
     method: str = "rwa",                   # "rwa" or "ode"
 ) -> Dict[str, np.ndarray]
@@ -273,6 +281,8 @@ simulate_rabi(
     readout_state_index: int | None = None,
     drive_axis: str = "x",
     rwa_branch: str = "ms_minus",
+    rwa_spin: str = "electron",
+    rwa_auto_fallback: bool = True,
     params: NVParams | None = None,
     method: str = "rwa",
 ) -> Dict[str, np.ndarray]
@@ -296,6 +306,8 @@ simulate_t2star(
     readout_state_index: int | None = None,
     drive_axis: str = "x",
     rwa_branch: str = "ms_minus",
+    rwa_spin: str = "electron",
+    rwa_auto_fallback: bool = True,
     params: NVParams | None = None,
     method: str = "rwa",
 ) -> Dict[str, np.ndarray]
@@ -342,13 +354,21 @@ propagate_state(
 ### RWA construction functions
 
 ```python
-rotating_frame_h0(h0, f_drive_hz, branch="ms_minus") -> np.ndarray   # (9, 9)
-rwa_drive_matrix(params, b1_gauss, axis="x") -> np.ndarray            # (9, 9)
-rwa_hamiltonian(params, b0_gauss, f_drive_hz, b1_gauss, axis="x", branch="ms_minus") -> np.ndarray  # (9, 9)
+rotating_frame_h0(h0, f_drive_hz, branch="ms_minus", rwa_spin="electron") -> np.ndarray   # (9, 9)
+rwa_drive_matrix(params, b1_gauss, axis="x", rwa_spin="electron") -> np.ndarray            # (9, 9)
+rwa_hamiltonian(
+    params,
+    b0_gauss,
+    f_drive_hz,
+    b1_gauss,
+    axis="x",
+    branch="ms_minus",
+    rwa_spin="electron",
+) -> np.ndarray  # (9, 9)
 ```
 
-- `rotating_frame_h0`: Transforms the static Hamiltonian into the rotating frame.
-- `rwa_drive_matrix`: Builds the time-independent RWA drive term (electron coupling only).
+- `rotating_frame_h0`: Transforms the static Hamiltonian into electron or nuclear rotating frame.
+- `rwa_drive_matrix`: Builds the time-independent RWA drive term for the selected spin channel.
 - `rwa_hamiltonian`: Convenience function returning the complete RWA Hamiltonian.
 
 ### State constructors
