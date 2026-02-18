@@ -14,6 +14,8 @@ def static_hamiltonian(params: NVParams, b0_gauss: float) -> np.ndarray:
     ix, iy, iz = nuclear_operators()
     i3 = np.eye(3, dtype=complex)
 
+    # Zeeman: omega = -gamma * B0.  For the electron gamma_e < 0, so omega_e > 0
+    # when B0 > 0, giving the conventional positive Larmor precession.
     omega_e = -params.gamma_e * b0_gauss
     omega_n = -params.gamma_n * b0_gauss
 
@@ -78,14 +80,37 @@ def total_hamiltonian(
     return h_t
 
 
-def estimate_rabi_omega_rad_s(params: NVParams, b1_gauss: float) -> float:
-    """Approximate electron-transition Rabi angular frequency for x/y drive."""
-    return abs(params.gamma_e) * abs(b1_gauss) / np.sqrt(2.0)
+def estimate_rabi_omega_rad_s(
+    params: NVParams, b1_gauss: float, rwa_spin: str = "electron"
+) -> float:
+    """Approximate Rabi angular frequency for x/y drive.
+
+    Parameters
+    ----------
+    params : NVParams
+        NV center parameters.
+    b1_gauss : float
+        Drive field amplitude in Gauss.
+    rwa_spin : str
+        ``"electron"`` uses ``gamma_e``; ``"nuclear"`` uses ``gamma_n``.
+    """
+    gamma = params.gamma_e if rwa_spin == "electron" else params.gamma_n
+    return abs(gamma) * abs(b1_gauss) / np.sqrt(2.0)
 
 
-def estimate_pi2_time_s(params: NVParams, b1_gauss: float) -> float:
-    omega = estimate_rabi_omega_rad_s(params, b1_gauss)
+def estimate_pi2_time_s(
+    params: NVParams, b1_gauss: float, rwa_spin: str = "electron"
+) -> float:
+    """Estimate pi/2 pulse duration for electron or nuclear spin transitions."""
+    omega = estimate_rabi_omega_rad_s(params, b1_gauss, rwa_spin=rwa_spin)
     if omega <= 0:
         raise ValueError("b1_gauss must be non-zero for pi/2 pulse estimation")
     return np.pi / (2.0 * omega)
+
+
+def estimate_pi_time_s(
+    params: NVParams, b1_gauss: float, rwa_spin: str = "electron"
+) -> float:
+    """Estimate pi pulse duration for electron or nuclear spin transitions."""
+    return 2.0 * estimate_pi2_time_s(params, b1_gauss, rwa_spin=rwa_spin)
 

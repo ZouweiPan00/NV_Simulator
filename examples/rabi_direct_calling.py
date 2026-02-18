@@ -1,4 +1,9 @@
-"""Rabi example using simulate_rabi() and plotting the result."""
+"""Rabi example using simulate_rabi() and plotting the result.
+
+Run with ``--save`` to write the figure to a PNG file instead of showing it.
+"""
+
+import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -55,7 +60,11 @@ def main() -> None:
     )
     ax.grid(alpha=0.3)
     fig.tight_layout()
-    plt.show()
+    if "--save" in sys.argv:
+        fig.savefig("rabi_direct_calling.png", dpi=150)
+        print("Saved rabi_direct_calling.png")
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":

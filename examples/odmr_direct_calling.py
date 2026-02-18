@@ -1,4 +1,9 @@
-"""ODMR example using simulate_odmr() and plotting the result."""
+"""ODMR example using simulate_odmr() and plotting the result.
+
+Run with ``--save`` to write the figure to a PNG file instead of showing it.
+"""
+
+import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -48,7 +53,11 @@ def main() -> None:
     )
     ax.grid(alpha=0.3)
     fig.tight_layout()
-    plt.show()
+    if "--save" in sys.argv:
+        fig.savefig("odmr_direct_calling.png", dpi=150)
+        print("Saved odmr_direct_calling.png")
+    else:
+        plt.show()
 
 
 if __name__ == "__main__":

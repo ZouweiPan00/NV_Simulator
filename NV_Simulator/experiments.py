@@ -61,36 +61,15 @@ def _validate_method(method: str) -> str:
 
 
 def _validate_rwa_spin(rwa_spin: str) -> str:
-    rwa_spin = rwa_spin.lower()
-    if rwa_spin not in {"electron", "nuclear"}:
-        raise ValueError("rwa_spin must be 'electron' or 'nuclear'")
-    return rwa_spin
+    """Re-export from rwa module for internal use."""
+    from .rwa import _validate_rwa_spin as _v
+    return _v(rwa_spin)
 
 
 def _validate_rwa_branch(rwa_branch: str, rwa_spin: str) -> str:
-    rwa_branch = rwa_branch.lower()
-    if rwa_spin == "electron":
-        if rwa_branch in {"mi_minus", "mi_plus"}:
-            mapped = "ms_minus" if rwa_branch == "mi_minus" else "ms_plus"
-            warnings.warn(
-                f"Mapped rwa_branch='{rwa_branch}' to '{mapped}' for rwa_spin='electron'.",
-                RuntimeWarning,
-            )
-            return mapped
-        if rwa_branch not in {"ms_minus", "ms_plus"}:
-            raise ValueError("For rwa_spin='electron', rwa_branch must be 'ms_minus' or 'ms_plus'")
-        return rwa_branch
-
-    if rwa_branch in {"ms_minus", "ms_plus"}:
-        mapped = "mi_minus" if rwa_branch == "ms_minus" else "mi_plus"
-        warnings.warn(
-            f"Mapped rwa_branch='{rwa_branch}' to '{mapped}' for rwa_spin='nuclear'.",
-            RuntimeWarning,
-        )
-        return mapped
-    if rwa_branch not in {"mi_minus", "mi_plus"}:
-        raise ValueError("For rwa_spin='nuclear', rwa_branch must be 'mi_minus' or 'mi_plus'")
-    return rwa_branch
+    """Validate rwa_branch against rwa_spin, raising on mismatch."""
+    from .rwa import _validate_rwa_branch as _v
+    return _v(rwa_branch, rwa_spin)
 
 
 # Pre-compute Sz ⊗ I3 for vectorized ODMR frequency sweeps.
@@ -126,7 +105,14 @@ def _rwa_needs_fallback_to_ode(
     drive_axis: str,
     rwa_spin: str,
 ) -> tuple[bool, float, float]:
-    if drive_axis.lower() == "z" or pulse_strength_gauss == 0.0:
+    if drive_axis.lower() == "z":
+        warnings.warn(
+            "RWA is not meaningful for z-axis drive (transverse component is zero). "
+            "Falling back to ODE.",
+            RuntimeWarning,
+        )
+        return True, 0.0, 0.0
+    if pulse_strength_gauss == 0.0:
         return False, np.inf, 0.0
     min_detuning_hz = cross_spin_min_detuning_hz(h0, f_drive_hz, rwa_spin=rwa_spin)
     threshold_hz = _rwa_cross_spin_detuning_threshold_hz(params, pulse_strength_gauss, rwa_spin)
@@ -270,6 +256,10 @@ def simulate_odmr(
     method = _validate_method(method)
     params = params or NVParams()
     psi0 = _as_state(initial_state)
+    if pulse_duration_s < 0:
+        raise ValueError("pulse_duration_s must be non-negative")
+    if pulse_strength_gauss < 0:
+        raise ValueError("pulse_strength_gauss must be non-negative")
 
     freqs = np.linspace(f_start_hz, f_stop_hz, n_points)
 
@@ -305,26 +295,26 @@ def simulate_odmr(
                 RuntimeWarning,
             )
 
-        if method == "rwa":
-            h1_rwa = rwa_drive_matrix(
-                params,
-                pulse_strength_gauss,
-                drive_axis,
-                rwa_spin=rwa_spin,
-            )
+    if method == "rwa":
+        h1_rwa = rwa_drive_matrix(
+            params,
+            pulse_strength_gauss,
+            drive_axis,
+            rwa_spin=rwa_spin,
+        )
 
-            # Vectorized batch construction: avoid N calls to rotating_frame_h0
-            sign, rot_gen = _rwa_branch_sign_and_generator(rwa_spin, rwa_branch)
-            omega_d = 2.0 * np.pi * freqs  # (N,)
-            h_base = h0 + h1_rwa  # (9, 9)
-            h_rwa_batch = (
-                h_base[None, :, :]
-                + sign * omega_d[:, None, None] * rot_gen[None, :, :]
-            )  # (N, 9, 9)
+        # Vectorized batch construction: avoid N calls to rotating_frame_h0
+        sign, rot_gen = _rwa_branch_sign_and_generator(rwa_spin, rwa_branch)
+        omega_d = 2.0 * np.pi * freqs  # (N,)
+        h_base = h0 + h1_rwa  # (9, 9)
+        h_rwa_batch = (
+            h_base[None, :, :]
+            + sign * omega_d[:, None, None] * rot_gen[None, :, :]
+        )  # (N, 9, 9)
 
-            states = propagate_expm(psi0, h_rwa_batch, pulse_duration_s)  # (N, 9)
-            signal = _readout_signal_batch(states, readout_ms, readout_state_index)
-    if method != "rwa":
+        states = propagate_expm(psi0, h_rwa_batch, pulse_duration_s)  # (N, 9)
+        signal = _readout_signal_batch(states, readout_ms, readout_state_index)
+    else:
         signal = _simulate_odmr_ode_signal(
             psi0=psi0,
             params=params,
@@ -368,6 +358,10 @@ def simulate_rabi(
     method = _validate_method(method)
     params = params or NVParams()
     psi0 = _as_state(initial_state)
+    if pulse_strength_gauss < 0:
+        raise ValueError("pulse_strength_gauss must be non-negative")
+    if t_stop_s < t_start_s:
+        raise ValueError("t_stop_s must be >= t_start_s")
 
     times = np.linspace(t_start_s, t_stop_s, n_points)
 
@@ -403,19 +397,19 @@ def simulate_rabi(
                 RuntimeWarning,
             )
 
-        if method == "rwa":
-            h_rwa = rwa_hamiltonian(
-                params,
-                b0_gauss,
-                pulse_frequency_hz,
-                pulse_strength_gauss,
-                drive_axis,
-                branch=rwa_branch,
-                rwa_spin=rwa_spin,
-            )
-            states = propagate_expm(psi0, h_rwa, times)  # (N, 9)
-            signal = _readout_signal_batch(states, readout_ms, readout_state_index)
-    if method != "rwa":
+    if method == "rwa":
+        h_rwa = rwa_hamiltonian(
+            params,
+            b0_gauss,
+            pulse_frequency_hz,
+            pulse_strength_gauss,
+            drive_axis,
+            branch=rwa_branch,
+            rwa_spin=rwa_spin,
+        )
+        states = propagate_expm(psi0, h_rwa, times)  # (N, 9)
+        signal = _readout_signal_batch(states, readout_ms, readout_state_index)
+    else:
         states, signal = _simulate_rabi_ode(
             psi0=psi0,
             params=params,
@@ -454,9 +448,15 @@ def simulate_t2star(
     method = _validate_method(method)
     params = params or NVParams()
     psi0 = _as_state(initial_state)
+    if pulse_strength_gauss < 0:
+        raise ValueError("pulse_strength_gauss must be non-negative")
+    if t_stop_s < t_start_s:
+        raise ValueError("t_stop_s must be >= t_start_s")
     h0 = static_hamiltonian(params=params, b0_gauss=b0_gauss)
     taus = np.linspace(t_start_s, t_stop_s, n_points)
-    t_pi2 = estimate_pi2_time_s(params=params, b1_gauss=pulse_strength_gauss)
+    t_pi2 = estimate_pi2_time_s(
+        params=params, b1_gauss=pulse_strength_gauss, rwa_spin=rwa_spin
+    )
     f_eff = pulse_frequency_hz + detuning_hz
 
     if method == "rwa":
@@ -490,28 +490,28 @@ def simulate_t2star(
                 RuntimeWarning,
             )
 
-        if method == "rwa":
-            h_pulse_rwa = rwa_hamiltonian(
-                params,
-                b0_gauss,
-                f_eff,
-                pulse_strength_gauss,
-                drive_axis,
-                branch=rwa_branch,
-                rwa_spin=rwa_spin,
-            )
-            h_free_rot = rotating_frame_h0(h0, f_eff, branch=rwa_branch, rwa_spin=rwa_spin)
+    if method == "rwa":
+        h_pulse_rwa = rwa_hamiltonian(
+            params,
+            b0_gauss,
+            f_eff,
+            pulse_strength_gauss,
+            drive_axis,
+            branch=rwa_branch,
+            rwa_spin=rwa_spin,
+        )
+        h_free_rot = rotating_frame_h0(h0, f_eff, branch=rwa_branch, rwa_spin=rwa_spin)
 
-            # pi/2 propagator (computed once)
-            U_pi2 = _expm(-1j * h_pulse_rwa * t_pi2)  # (9, 9)
+        # pi/2 propagator (computed once)
+        U_pi2 = _expm(-1j * h_pulse_rwa * t_pi2)  # (9, 9)
 
-            # Sequence: pi/2 - free(tau) - pi/2
-            psi1 = U_pi2 @ psi0  # (9,)
-            psi2_batch = propagate_expm(psi1, h_free_rot, taus)  # (N, 9)
-            psi3_batch = np.einsum('ij,nj->ni', U_pi2, psi2_batch)  # (N, 9)
+        # Sequence: pi/2 - free(tau) - pi/2
+        psi1 = U_pi2 @ psi0  # (9,)
+        psi2_batch = propagate_expm(psi1, h_free_rot, taus)  # (N, 9)
+        psi3_batch = np.einsum('ij,nj->ni', U_pi2, psi2_batch)  # (N, 9)
 
-            signal = _readout_signal_batch(psi3_batch, readout_ms, readout_state_index)
-    if method != "rwa":
+        signal = _readout_signal_batch(psi3_batch, readout_ms, readout_state_index)
+    else:
         signal = _simulate_t2star_ode_signal(
             psi0=psi0,
             params=params,

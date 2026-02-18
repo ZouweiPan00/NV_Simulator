@@ -45,11 +45,14 @@ def kron_op(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 
 
 def basis_index(ms: int, mI: int) -> int:
-    """Return 0-based index in BASIS_STATES."""
-    try:
-        return BASIS_STATES.index((ms, mI))
-    except ValueError as exc:
-        raise ValueError(f"Invalid basis label (ms={ms}, mI={mI})") from exc
+    """Return 0-based index in BASIS_STATES.
+
+    The basis is ordered as ms in [+1, 0, -1], mI in [+1, 0, -1],
+    so the index is ``(1 - ms) * 3 + (1 - mI)``.
+    """
+    if ms not in {+1, 0, -1} or mI not in {+1, 0, -1}:
+        raise ValueError(f"Invalid basis label (ms={ms}, mI={mI})")
+    return (1 - ms) * 3 + (1 - mI)
 
 
 def ket_from_index(index_1based: int) -> np.ndarray:

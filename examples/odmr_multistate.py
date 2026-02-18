@@ -1,12 +1,15 @@
-"""ODMR with 4-state population readout at B0 = 500 G.
+"""ODMR with multistate population readout at B0 = 500 G.
 
 Initial state: |0,+1> (state 4), optically initialized at high field.
 Input drive strength is specified as Rabi frequency Omega in MHz.
 
-The plot shows the population of |0,+1> and the three ms=-1 sub-levels
-as a function of drive frequency. Only the mI-conserving transition
-|0,+1> <-> |-1,+1> produces a resonance peak.
+The plot shows the population of |0,+1> as a function of drive frequency.
+Only the mI-conserving transition |0,+1> <-> |-1,+1> produces a resonance peak.
+
+Run with ``--save`` to write the figure to a PNG file instead of showing it.
 """
+
+import sys
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -55,4 +58,8 @@ ax.set_title(
     f"$t_{{pulse}}$={t_pulse*1e9:.0f} ns"
 )
 plt.tight_layout()
-plt.show()
+if "--save" in sys.argv:
+    fig.savefig("odmr_multistate.png", dpi=150)
+    print("Saved odmr_multistate.png")
+else:
+    plt.show()

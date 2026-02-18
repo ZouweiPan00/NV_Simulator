@@ -5,7 +5,11 @@ Input drive strength is specified as Rabi frequency Omega in MHz.
 Drive frequency: on resonance with |0,+1> <-> |-1,+1>.
 
 The plot shows P(|0,+1>) oscillating with |-1,+1> at the Rabi frequency.
+
+Run with ``--save`` to write the figure to a PNG file instead of showing it.
 """
+
+import sys
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -54,4 +58,8 @@ ax.set_title(
     f"$f_{{drive}}$={f_res_hz/1e9:.4f} GHz"
 )
 plt.tight_layout()
-plt.show()
+if "--save" in sys.argv:
+    fig.savefig("rabi_multistate.png", dpi=150)
+    print("Saved rabi_multistate.png")
+else:
+    plt.show()

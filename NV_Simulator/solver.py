@@ -11,6 +11,21 @@ from scipy.linalg import expm
 HamiltonianType = Union[np.ndarray, Callable[[float], np.ndarray]]
 
 
+def _safe_expm(arg: np.ndarray) -> np.ndarray:
+    """Matrix exponential with fallback for batched (N,d,d) arrays.
+
+    ``scipy.linalg.expm`` supports stacked matrices in recent SciPy versions
+    but this is not part of the public API.  When the batch call fails we fall
+    back to a simple loop.
+    """
+    if arg.ndim <= 2:
+        return expm(arg)
+    try:
+        return expm(arg)
+    except (ValueError, TypeError):
+        return np.array([expm(arg[i]) for i in range(arg.shape[0])])
+
+
 def _get_hamiltonian_callable(hamiltonian: HamiltonianType) -> Callable[[float], np.ndarray]:
     if callable(hamiltonian):
         return hamiltonian
@@ -38,7 +53,7 @@ def propagate_state(
         raise ValueError("psi0 must be a 1D complex state vector")
 
     norm0 = np.linalg.norm(psi0)
-    if norm0 == 0:
+    if norm0 < 1e-15:
         raise ValueError("Initial state psi0 has zero norm")
     psi0 = psi0 / norm0
 
@@ -102,7 +117,7 @@ def propagate_expm(
         raise ValueError("psi0 must be a 1D state vector")
 
     norm0 = np.linalg.norm(psi0)
-    if norm0 == 0:
+    if norm0 < 1e-15:
         raise ValueError("Initial state psi0 has zero norm")
     psi0 = psi0 / norm0
 
@@ -133,7 +148,7 @@ def propagate_expm(
     if np.ndim(t) == 0:
         # Modes 1 & 2: scalar time
         arg = -1j * hamiltonian * float(t)
-        U = expm(arg)  # (d,d) or (N,d,d)
+        U = _safe_expm(arg)  # (d,d) or (N,d,d)
         return U @ psi0
     else:
         # Mode 3: H (d,d), t array (N,)
@@ -141,5 +156,5 @@ def propagate_expm(
         if t_arr.ndim != 1:
             raise ValueError(f"t must be scalar or 1D array, got {t_arr.ndim}D")
         arg = -1j * hamiltonian[None, :, :] * t_arr[:, None, None]  # (N,d,d)
-        U = expm(arg)  # (N,d,d)
+        U = _safe_expm(arg)  # (N,d,d)
         return U @ psi0  # (N,d)

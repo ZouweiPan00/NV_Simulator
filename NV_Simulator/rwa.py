@@ -6,18 +6,26 @@ import numpy as np
 
 from .constants import NVParams
 from .hamiltonian import static_hamiltonian
-from .operators import electron_operators, kron_op, nuclear_operators
+from .operators import basis_index, electron_operators, kron_op, nuclear_operators
 
 
 # Allowed single-quantum transitions for transverse (x/y) driving.
 # Electron transitions: Delta m_s = +/-1, Delta m_I = 0.
 _ELECTRON_PAIRS = np.array(
-    [[0, 3], [1, 4], [2, 5], [3, 6], [4, 7], [5, 8]],
+    [
+        [basis_index(ms1, mi), basis_index(ms2, mi)]
+        for ms1, ms2 in [(+1, 0), (0, -1)]
+        for mi in [+1, 0, -1]
+    ],
     dtype=int,
 )
 # Nuclear transitions: Delta m_I = +/-1, Delta m_s = 0.
 _NUCLEAR_PAIRS = np.array(
-    [[0, 1], [1, 2], [3, 4], [4, 5], [6, 7], [7, 8]],
+    [
+        [basis_index(ms, mi1), basis_index(ms, mi2)]
+        for ms in [+1, 0, -1]
+        for mi1, mi2 in [(+1, 0), (0, -1)]
+    ],
     dtype=int,
 )
 
@@ -43,10 +51,16 @@ def _validate_rwa_branch(branch: str, rwa_spin: str) -> str:
 def transition_frequencies_hz(h0: np.ndarray, spin: str) -> np.ndarray:
     """Return allowed transition frequencies (Hz) for electron or nuclear driving.
 
+    .. note::
+       This function reads only the diagonal of *h0* and therefore assumes
+       *h0* is diagonal in the ``|ms, mI>`` computational basis.  The default
+       ``static_hamiltonian`` satisfies this requirement.  Pass a custom *h0*
+       that contains off-diagonal elements and you will get incorrect results.
+
     Parameters
     ----------
     h0 : ndarray (9, 9)
-        Laboratory-frame static Hamiltonian.
+        Laboratory-frame static Hamiltonian (must be diagonal).
     spin : str
         "electron" or "nuclear".
 
@@ -54,9 +68,21 @@ def transition_frequencies_hz(h0: np.ndarray, spin: str) -> np.ndarray:
     -------
     ndarray (6,)
         Absolute transition frequencies in Hz.
+
+    Raises
+    ------
+    ValueError
+        If *h0* has significant off-diagonal elements.
     """
     spin = _validate_rwa_spin(spin)
-    e_diag = np.real(np.diag(np.asarray(h0, dtype=complex)))
+    h0 = np.asarray(h0, dtype=complex)
+    off_diag = np.linalg.norm(h0 - np.diag(np.diag(h0)))
+    if off_diag > 1e-6 * np.linalg.norm(h0):
+        raise ValueError(
+            "transition_frequencies_hz requires a diagonal H0 in the |ms,mI> basis; "
+            "for non-diagonal Hamiltonians use np.linalg.eigh to diagonalise first"
+        )
+    e_diag = np.real(np.diag(h0))
     pairs = _ELECTRON_PAIRS if spin == "electron" else _NUCLEAR_PAIRS
     return np.abs(e_diag[pairs[:, 1]] - e_diag[pairs[:, 0]]) / (2.0 * np.pi)
 
@@ -78,6 +104,13 @@ def rotating_frame_h0(
     rwa_spin: str = "electron",
 ) -> np.ndarray:
     """Rotating-frame static Hamiltonian for selected electron or nuclear branch.
+
+    .. note::
+       This transformation assumes ``[H0, Sz ⊗ I3] = 0`` (electron) or
+       ``[H0, I3 ⊗ Iz] = 0`` (nuclear), i.e. the static Hamiltonian commutes
+       with the generator of the rotating frame.  The default
+       ``static_hamiltonian`` satisfies this.  If *h0* contains terms that
+       break this symmetry the result will be incorrect.
 
     Parameters
     ----------
@@ -123,18 +156,15 @@ def rwa_drive_matrix(
     b1_gauss: float,
     axis: str = "x",
     rwa_spin: str = "electron",
+    phase_rad: float = 0.0,
 ) -> np.ndarray:
     """RWA time-independent drive term.
 
     - ``rwa_spin='electron'``: ``-gamma_e * B1/2 * (S_perp kron I3)``
     - ``rwa_spin='nuclear'``: ``-gamma_n * B1/2 * (I3 kron I_perp)``
 
-    The full ODE path always contains both terms. RWA keeps only the targeted
-    spin channel and neglects the opposite-spin channel under off-resonant
-    conditions.
-
-    The matrix is independent of branch choice within a spin channel because
-    the co-rotating term has the same transverse operator for both branches.
+    When ``phase_rad != 0`` the transverse operator is rotated:
+    ``S_perp -> cos(phi)*S_x + sin(phi)*S_y`` (or the nuclear equivalent).
 
     Parameters
     ----------
@@ -146,6 +176,8 @@ def rwa_drive_matrix(
         "x" or "y" ("z" returns zero matrix).
     rwa_spin : str
         "electron" or "nuclear".
+    phase_rad : float
+        Drive phase in radians (default 0).
 
     Returns
     -------
@@ -163,10 +195,19 @@ def rwa_drive_matrix(
     sx, sy, _ = electron_operators()
     ix, iy, _ = nuclear_operators()
     i3 = np.eye(3, dtype=complex)
+
+    # Apply phase rotation to the transverse operator
+    c, s = np.cos(phase_rad), np.sin(phase_rad)
     if rwa_spin == "electron":
-        s_perp = sx if axis == "x" else sy
+        if axis == "x":
+            s_perp = c * sx + s * sy
+        else:
+            s_perp = c * sy - s * sx
         return (-params.gamma_e * b1_gauss / 2.0) * kron_op(s_perp, i3)
-    i_perp = ix if axis == "x" else iy
+    if axis == "x":
+        i_perp = c * ix + s * iy
+    else:
+        i_perp = c * iy - s * ix
     return (-params.gamma_n * b1_gauss / 2.0) * kron_op(i3, i_perp)
 
 
@@ -178,6 +219,7 @@ def rwa_hamiltonian(
     axis: str = "x",
     branch: str = "ms_minus",
     rwa_spin: str = "electron",
+    phase_rad: float = 0.0,
 ) -> np.ndarray:
     """Complete RWA Hamiltonian = rotating_frame_h0 + rwa_drive_matrix.
 
@@ -200,6 +242,8 @@ def rwa_hamiltonian(
         Branch selection (see ``rotating_frame_h0``).
     rwa_spin : str
         "electron" or "nuclear".
+    phase_rad : float
+        Drive phase in radians (default 0).
 
     Returns
     -------
@@ -208,5 +252,7 @@ def rwa_hamiltonian(
     """
     h0 = static_hamiltonian(params=params, b0_gauss=b0_gauss)
     h0_rot = rotating_frame_h0(h0, f_drive_hz, branch=branch, rwa_spin=rwa_spin)
-    h1_rwa = rwa_drive_matrix(params, b1_gauss, axis, rwa_spin=rwa_spin)
+    h1_rwa = rwa_drive_matrix(
+        params, b1_gauss, axis, rwa_spin=rwa_spin, phase_rad=phase_rad
+    )
     return h0_rot + h1_rwa
