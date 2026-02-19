@@ -220,21 +220,21 @@ $$
 $$
 \begin{aligned}
 \tilde{H}_1(t) &= V_z(t) H_1 V_z^\dagger(t)
-= \sqrt{2}\Omega \cos(\omega t + \phi)\, V_z(t)\, \mathbb{I}_3 \otimes I_x\, V_z^\dagger(t) \\
-&= \Omega \cos(\omega t + \phi)\, \mathbb{I}_3 \otimes
+= \sqrt{2}\Omega \cos(\omega t + \phi) V_z(t) \mathbb{I}_3 \otimes I_x V_z^\dagger(t) \\
+&= \Omega \cos(\omega t + \phi) \mathbb{I}_3 \otimes
 \begin{bmatrix}
     0 & e^{-i\omega t} & 0 \\
     e^{i\omega t} & 0 & e^{i\omega t} \\
     0 & e^{-i\omega t} & 0 \\
 \end{bmatrix}\\
-&= \Omega \frac{e^{i(\omega t + \phi)} + e^{-i(\omega t + \phi)}}{2}\,
+&= \Omega \frac{e^{i(\omega t + \phi)} + e^{-i(\omega t + \phi)}}{2}
 \mathbb{I}_3 \otimes
 \begin{bmatrix}
     0 & e^{-i\omega t} & 0 \\
     e^{i\omega t} & 0 & e^{i\omega t} \\
     0 & e^{-i\omega t} & 0 \\
 \end{bmatrix}\\
-&\approx \frac{\Omega}{2}\, \mathbb{I}_3 \otimes
+&\approx \frac{\Omega}{2} \mathbb{I}_3 \otimes
 \begin{bmatrix}
     0 & e^{i\phi} & 0 \\
     e^{-i\phi} & 0 & e^{-i\phi} \\
