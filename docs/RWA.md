@@ -290,4 +290,4 @@ $$
 g_\phi = \frac{\Omega}{2}e^{i\phi}
 $$
 
-注意对于$|4\rangle\leftrightarrow|5\rangle$的共振驱动，还会同时驱动$|5\rangle\leftrightarrow|6\rangle$以及$|1\rangle\leftrightarrow|2\rangle$、$|7\rangle\leftrightarrow|8\rangle$等偏共振跃迁。当脉冲较强时，这些偏共振项需要保留。
+注意由于$\gamma_n$较小，驱动强度通常较弱，因此偏共振效应可以忽略。
